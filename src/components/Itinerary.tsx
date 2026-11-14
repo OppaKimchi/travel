@@ -310,7 +310,7 @@ function StopRow({ stop, canEdit, onOpen }: { stop: Stop; canEdit: boolean; onOp
             </span>
           )}
         </span>
-        {stop.notes && <span className="stop-notes">{stop.notes}</span>}
+        {stop.notes && <span className="stop-notes">{stop.notes.split("\n\n")[0]}</span>}
       </button>
     </li>
   );
