@@ -54,7 +54,8 @@ export default defineConfig({
     contentSecurityPolicy(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "script",
+      // Registered in src/main.tsx, which also reloads the page on updates.
+      injectRegister: false,
       includeAssets: ["icon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Our Trips",
@@ -72,6 +73,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // A new version takes over open pages straight away.
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallback: "/travel/index.html",
         globPatterns: ["**/*.{js,css,html,svg,png,webmanifest}"],
         runtimeCaching: [
