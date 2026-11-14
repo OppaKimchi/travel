@@ -17,7 +17,9 @@ function ConfiguredApp() {
   if (!ready) return <main className="centered muted">Loading…</main>;
   if (!user) return <SignIn />;
   if (route.name === "trip") {
-    return <TripView key={route.tripId} tripId={route.tripId} tab={route.tab} sessionOffline={offline} />;
+    return (
+      <TripView key={route.tripId} tripId={route.tripId} tab={route.tab} userId={user.id} sessionOffline={offline} />
+    );
   }
   return <TripList user={user} />;
 }

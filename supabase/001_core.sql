@@ -235,3 +235,6 @@ create policy "Members manage stops" on public.stops
 ------------------------------------------------------------------------------
 
 alter publication supabase_realtime add table public.trips, public.trip_members, public.stops;
+
+-- Tell the Data API to pick up the new tables straight away.
+notify pgrst, 'reload schema';

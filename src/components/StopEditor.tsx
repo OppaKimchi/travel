@@ -3,6 +3,7 @@ import { formatDay } from "../lib/dates";
 import { friendlyError } from "../lib/errors";
 import { directionsUrl, searchPlaces, type PlaceResult } from "../lib/geocode";
 import { CATEGORIES, type Category, type StopDraft } from "../lib/types";
+import { NoteLinks } from "./NoteLinks";
 import { Sheet } from "./Sheet";
 
 export function StopEditor({
@@ -186,6 +187,7 @@ export function StopEditor({
             onChange={(e) => update({ notes: e.target.value })}
           />
         </label>
+        <NoteLinks text={draft.notes} />
 
         {error && (
           <p className="error" role="alert">

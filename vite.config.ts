@@ -5,11 +5,13 @@ import { SUPABASE_URL } from "./src/config";
 
 const TILE_ORIGIN = "https://tile.openstreetmap.org";
 const SEARCH_ORIGIN = "https://nominatim.openstreetmap.org";
+const RATES_ORIGIN = "https://api.frankfurter.dev";
 
 // Adds a Content-Security-Policy to the built page. The app only talks to
-// itself, its Supabase project, OpenStreetMap's map tiles and place search.
+// itself, its Supabase project, OpenStreetMap's map tiles and place search,
+// and the exchange-rate service.
 function contentSecurityPolicy(): Plugin {
-  const connect = ["'self'", SEARCH_ORIGIN, TILE_ORIGIN];
+  const connect = ["'self'", SEARCH_ORIGIN, TILE_ORIGIN, RATES_ORIGIN];
   if (SUPABASE_URL) {
     const supabase = new URL(SUPABASE_URL);
     connect.push(supabase.origin, `wss://${supabase.host}`);

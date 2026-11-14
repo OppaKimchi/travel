@@ -18,8 +18,9 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { bookingsOnDay, type DayBooking } from "../lib/bookings";
 import { formatDay, formatTime, todayIso } from "../lib/dates";
-import { categoryLabel, type Stop } from "../lib/types";
+import { bookingKindLabel, categoryLabel, type Booking, type Stop } from "../lib/types";
 import { Icon } from "./Icon";
 
 const IDEAS = "ideas";
@@ -54,16 +55,20 @@ const collision: CollisionDetection = (args) => {
 export function Itinerary({
   days,
   stops,
+  bookings,
   canEdit,
   onAdd,
   onOpen,
+  onOpenBooking,
   onPlace,
 }: {
   days: string[];
   stops: Stop[];
+  bookings: Booking[];
   canEdit: boolean;
   onAdd: (day: string | null) => void;
   onOpen: (stop: Stop) => void;
+  onOpenBooking: (booking: Booking) => void;
   onPlace: (changes: Placement[]) => void;
 }) {
   const sensors = useSensors(
@@ -173,9 +178,11 @@ export function Itinerary({
             key={group.key}
             group={group}
             isToday={group.day === today}
+            booked={group.day ? bookingsOnDay(bookings, group.day) : []}
             canEdit={canEdit}
             onAdd={() => onAdd(group.day)}
             onOpen={onOpen}
+            onOpenBooking={onOpenBooking}
             onSort={group.day && sortedByTime(group.stops) ? () => sortDay(group) : undefined}
           />
         ))}
@@ -192,16 +199,20 @@ function jump(event: MouseEvent, id: string) {
 function DaySection({
   group,
   isToday,
+  booked,
   canEdit,
   onAdd,
   onOpen,
+  onOpenBooking,
   onSort,
 }: {
   group: Group;
   isToday: boolean;
+  booked: DayBooking[];
   canEdit: boolean;
   onAdd: () => void;
   onOpen: (stop: Stop) => void;
+  onOpenBooking: (booking: Booking) => void;
   onSort?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day:${group.key}` });
@@ -222,12 +233,36 @@ function DaySection({
           {isToday && <span className="tag">Today</span>}
         </span>
       </header>
+      {booked.length > 0 && (
+        <ul className="booked" aria-label="Bookings this day">
+          {booked.map((item) => (
+            <li key={`${item.booking.id}-${item.label}`}>
+              <button
+                type="button"
+                className={`booked-row booking-${item.booking.kind}`}
+                onClick={() => onOpenBooking(item.booking)}
+              >
+                <Icon name="ticket" size={16} />
+                <span className="booked-text">
+                  <span className="booked-label">
+                    {item.label}
+                    {item.time && ` ${formatTime(item.time)}`}
+                    {item.endTime && ` to ${formatTime(item.endTime)}`}
+                    {item.label !== "Staying at" && ` · ${bookingKindLabel(item.booking.kind)}`}
+                  </span>
+                  <span className="booked-title">{item.booking.title}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <SortableContext items={group.stops.map((s) => s.id)} strategy={verticalListSortingStrategy}>
         <ol ref={setNodeRef} className={`stops${isOver ? " stops-over" : ""}`}>
           {group.stops.map((stop) => (
             <StopRow key={stop.id} stop={stop} canEdit={canEdit} onOpen={() => onOpen(stop)} />
           ))}
-          {group.stops.length === 0 && <li className="stops-empty">Nothing planned yet.</li>}
+          {group.stops.length === 0 && booked.length === 0 && <li className="stops-empty">Nothing planned yet.</li>}
         </ol>
       </SortableContext>
       {canEdit && (

@@ -1,15 +1,47 @@
 import { useMemo, useState } from "react";
-import { deleteStop, endPosition, moveStop, saveStop } from "../lib/api";
-import { formatClock, formatRange, tripDays } from "../lib/dates";
+import {
+  deleteBooking,
+  deleteExpense,
+  deleteStop,
+  endPosition,
+  moveStop,
+  saveBooking,
+  saveExpense,
+  savePlanned,
+  saveStop,
+} from "../lib/api";
+import { readCache, writeCache } from "../lib/cache";
+import { formatClock, formatRange, todayIso, tripDays } from "../lib/dates";
 import { friendlyError } from "../lib/errors";
 import { tripPath, type Tab } from "../lib/router";
-import type { Stop, StopDraft } from "../lib/types";
+import type { Booking, Expense, PackingItem, Stop, StopDraft } from "../lib/types";
 import { useTrip } from "../lib/useTrip";
-import { Icon } from "./Icon";
+import { BookingEditor } from "./BookingEditor";
+import { Bookings } from "./Bookings";
+import { Budget } from "./Budget";
+import { ExpenseEditor } from "./ExpenseEditor";
+import { Icon, type IconName } from "./Icon";
 import { Itinerary, type Placement } from "./Itinerary";
 import { MapView } from "./MapView";
+import { Packing } from "./Packing";
+import { PlanEditor } from "./PlanEditor";
 import { StopEditor } from "./StopEditor";
 import { TripSettings } from "./TripSettings";
+
+const TAB_ITEMS: { tab: Tab; label: string; icon: IconName }[] = [
+  { tab: "plan", label: "Plan", icon: "list" },
+  { tab: "map", label: "Map", icon: "map" },
+  { tab: "bookings", label: "Bookings", icon: "ticket" },
+  { tab: "budget", label: "Budget", icon: "wallet" },
+  { tab: "packing", label: "Packing", icon: "bag" },
+];
+
+type Editing =
+  | { type: "stop"; draft: StopDraft; stop?: Stop }
+  | { type: "booking"; booking?: Booking; day?: string }
+  | { type: "expense"; expense?: Expense }
+  | { type: "plan" }
+  | null;
 
 function draftFrom(stop: Stop): StopDraft {
   return {
@@ -29,9 +61,19 @@ function emptyDraft(day: string | null): StopDraft {
   return { title: "", day, start_time: "", category: "sight", notes: "", address: null, lat: null, lng: null };
 }
 
-export function TripView({ tripId, tab, sessionOffline }: { tripId: string; tab: Tab; sessionOffline: boolean }) {
+export function TripView({
+  tripId,
+  tab,
+  userId,
+  sessionOffline,
+}: {
+  tripId: string;
+  tab: Tab;
+  userId: string;
+  sessionOffline: boolean;
+}) {
   const { bundle, setBundle, status, error, savedAt, refresh } = useTrip(tripId);
-  const [editing, setEditing] = useState<{ draft: StopDraft; stop?: Stop } | null>(null);
+  const [editing, setEditing] = useState<Editing>(null);
   const [settings, setSettings] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -62,9 +104,13 @@ export function TripView({ tripId, tab, sessionOffline }: { tripId: string; tab:
   }
 
   const { trip, stops, members } = bundle;
+  const home = trip.home_currency;
+  const today = todayIso();
+  const defaultDay = days.includes(today) ? today : trip.start_date;
+  const currencyKey = `currency:${trip.id}`;
+  const lastCurrency = readCache<string>(currencyKey)?.data ?? home;
 
-  async function handleSave(draft: StopDraft) {
-    const original = editing?.stop;
+  async function handleSaveStop(draft: StopDraft, original?: Stop) {
     const position =
       original && original.day === draft.day ? original.position : endPosition(stops, draft.day, draft.id);
     await saveStop(trip.id, draft, position);
@@ -90,6 +136,14 @@ export function TripView({ tripId, tab, sessionOffline }: { tripId: string; tab:
       void refresh();
     });
   }
+
+  function setPacking(update: (items: PackingItem[]) => PackingItem[]) {
+    setBundle((current) => current && { ...current, packing: update(current.packing) });
+  }
+
+  const openStop = (stop: Stop) => setEditing({ type: "stop", draft: draftFrom(stop), stop });
+  const openBooking = (booking: Booking) => setEditing({ type: "booking", booking });
+  const openExpense = (expense: Expense) => setEditing({ type: "expense", expense });
 
   return (
     <>
@@ -128,37 +182,72 @@ export function TripView({ tripId, tab, sessionOffline }: { tripId: string; tab:
       )}
 
       <main className={tab === "map" ? "page page-map" : "page"}>
-        {tab === "plan" ? (
+        {tab === "plan" && (
           <Itinerary
             days={days}
             stops={stops}
+            bookings={bundle.bookings}
             canEdit={!offline}
-            onAdd={(day) => setEditing({ draft: emptyDraft(day) })}
-            onOpen={(stop) => setEditing({ draft: draftFrom(stop), stop })}
+            onAdd={(day) => setEditing({ type: "stop", draft: emptyDraft(day) })}
+            onOpen={openStop}
+            onOpenBooking={openBooking}
             onPlace={handlePlace}
           />
-        ) : (
-          <MapView days={days} stops={stops} onOpen={(stop) => setEditing({ draft: draftFrom(stop), stop })} />
+        )}
+        {tab === "map" && <MapView days={days} stops={stops} onOpen={openStop} />}
+        {tab === "bookings" && (
+          <Bookings
+            bookings={bundle.bookings}
+            days={days}
+            home={home}
+            canEdit={!offline}
+            onAdd={() => setEditing({ type: "booking" })}
+            onOpen={openBooking}
+          />
+        )}
+        {tab === "budget" && (
+          <Budget
+            bundle={bundle}
+            canEdit={!offline}
+            onAddExpense={() => setEditing({ type: "expense" })}
+            onOpenExpense={openExpense}
+            onOpenBooking={openBooking}
+            onEditPlan={() => setEditing({ type: "plan" })}
+          />
+        )}
+        {tab === "packing" && (
+          <Packing
+            tripId={trip.id}
+            items={bundle.packing}
+            members={members}
+            userId={userId}
+            canEdit={!offline}
+            onItems={setPacking}
+            onRefresh={refresh}
+          />
         )}
       </main>
 
       <nav className="tab-bar" aria-label="Trip sections">
-        <a className={tab === "plan" ? "tab tab-active" : "tab"} href={tripPath(trip.id, "plan")} aria-current={tab === "plan" ? "page" : undefined}>
-          <Icon name="list" />
-          Plan
-        </a>
-        <a className={tab === "map" ? "tab tab-active" : "tab"} href={tripPath(trip.id, "map")} aria-current={tab === "map" ? "page" : undefined}>
-          <Icon name="map" />
-          Map
-        </a>
+        {TAB_ITEMS.map((item) => (
+          <a
+            key={item.tab}
+            className={tab === item.tab ? "tab tab-active" : "tab"}
+            href={tripPath(trip.id, item.tab)}
+            aria-current={tab === item.tab ? "page" : undefined}
+          >
+            <Icon name={item.icon} />
+            {item.label}
+          </a>
+        ))}
       </nav>
 
-      {editing && (
+      {editing?.type === "stop" && (
         <StopEditor
           key={editing.stop?.id ?? "new"}
           initial={editing.draft}
           days={days}
-          onSave={handleSave}
+          onSave={(draft) => handleSaveStop(draft, editing.stop)}
           onDelete={
             editing.stop
               ? async () => {
@@ -167,6 +256,68 @@ export function TripView({ tripId, tab, sessionOffline }: { tripId: string; tab:
                 }
               : undefined
           }
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing?.type === "booking" && (
+        <BookingEditor
+          booking={editing.booking}
+          defaultDay={editing.day ?? defaultDay}
+          home={home}
+          defaultCurrency={lastCurrency}
+          members={members}
+          userId={userId}
+          onSave={async (input) => {
+            await saveBooking(trip.id, input, editing.booking?.id);
+            if (input.currency) writeCache(currencyKey, input.currency);
+            await refresh();
+          }}
+          onDelete={
+            editing.booking
+              ? async () => {
+                  await deleteBooking(editing.booking!.id);
+                  await refresh();
+                }
+              : undefined
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing?.type === "expense" && (
+        <ExpenseEditor
+          expense={editing.expense}
+          defaultDay={today}
+          home={home}
+          defaultCurrency={lastCurrency}
+          members={members}
+          userId={userId}
+          onSave={async (input) => {
+            await saveExpense(trip.id, input, editing.expense?.id);
+            writeCache(currencyKey, input.currency);
+            await refresh();
+          }}
+          onDelete={
+            editing.expense
+              ? async () => {
+                  await deleteExpense(editing.expense!.id);
+                  await refresh();
+                }
+              : undefined
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
+
+      {editing?.type === "plan" && (
+        <PlanEditor
+          budget={bundle.budget}
+          home={home}
+          onSave={async (planned) => {
+            await savePlanned(trip.id, planned);
+            await refresh();
+          }}
           onClose={() => setEditing(null)}
         />
       )}

@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 // Pages live in the URL hash (#/trip/<id>/map) because GitHub Pages can't
 // send every path to the app.
 
-export const TABS = ["plan", "map"] as const;
+export const TABS = ["plan", "map", "bookings", "budget", "packing"] as const;
 export type Tab = (typeof TABS)[number];
 
 export type Route = { name: "trips" } | { name: "trip"; tripId: string; tab: Tab };

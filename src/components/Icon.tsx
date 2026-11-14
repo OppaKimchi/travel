@@ -10,6 +10,10 @@ const PATHS = {
   close: "M18 6 6 18M6 6l12 12",
   user: "M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
   cloudOff: "M2 2l20 20M5.8 5.8A7 7 0 0 0 7 19h11a4 4 0 0 0 1.9-.5M9.5 4.3A7 7 0 0 1 17.7 9 4.5 4.5 0 0 1 21.3 15",
+  ticket: "M3 9a3 3 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a3 3 0 0 0 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1zM14 5v2M14 11v2M14 17v2",
+  wallet: "M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-4a2 2 0 0 0 0 4h4v2a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6",
+  bag: "M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M5 7h14a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM9 11v5M15 11v5",
+  copy: "M9 9h11v11H9zM5 15H4V4h11v1",
 } as const;
 
 export type IconName = keyof typeof PATHS;
